@@ -30,7 +30,8 @@ mongoose.connect("mongodb://127.0.0.1:27017/userDB",{useNewUrlParser: true});
 const userSchema = new mongoose.Schema({
     email: String,
     password: String,
-    googleId: String
+    googleId: String,
+    secret: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -86,13 +87,47 @@ app.get("/auth/google/secrets",
     });
 
 app.get("/secrets",function(req,res){
-    if(req.isAuthenticated()){ // if the user is authenticated then render the secrets page else make them login first
-        res.render("secrets");
-    }
-    else{
-        res.redirect("/login");
-    }
+    User.find({"secret": {$ne: null}}, function(err,foundUsers){ // searching secrets value of users that are not null
+        if(err){
+            console.error(err);
+        }
+        else{
+            if(foundUsers){
+                res.render("secrets",{usersWithSecrets: foundUsers});
+            }
+        }
+    });
 });
+
+app.route("/submit")
+    .get(function(req,res){
+        if(req.isAuthenticated()){// if the user is authenticated then render the submit page else make them login first
+            res.render("submit");
+        }
+        else{
+            res.redirect("/login");
+        }
+    })
+    .post(function(req,res){
+        const submitsecret = req.body.secret;
+        //passport saves the user's details into the request variable
+
+        User.findById(req.user.id,function(err,foundUser){
+            if(err){
+                console.error(err);
+            }
+            else{
+                if(foundUser){
+                    foundUser.secret = submitsecret;
+                    foundUser.save(function(){
+                        res.redirect("/secrets");
+                    });
+                }
+            }
+        });
+    });
+
+
 
 app.get("/logout",function(req,res){
     req.logout(function(err){
